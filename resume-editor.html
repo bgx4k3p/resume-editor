@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://unpkg.com/html-docx-js@0.3.1/dist/html-docx.js"></script>
+    <style>
+        /* Universal reset for consistent box model */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px; /* Overall padding for the body, not resume content */
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .controls {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-label {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-label:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+        }
+
+        .export-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .export-btn:hover {
+            background: #1e7e34;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(40,167,69,0.3);
+        }
+
+        .export-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .export-docx-btn {
+            background: #17a2b8;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .export-docx-btn:hover {
+            background: #138496;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(23,162,184,0.3);
+        }
+
+        .export-docx-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .content {
+            display: flex;
+            min-height: 800px; /* Ensures editor and preview have a minimum height */
+        }
+
+        .editor {
+            flex: 1;
+            border-right: 1px solid #e9ecef;
+        }
+
+        .textarea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            padding: 40px; /* Padding for the textarea itself */
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+            background: #f8f9fa;
+        }
+
+        /* Styles for the preview area */
+        .preview {
+            flex: 1;
+            background: white; /* White background for the preview area */
+            min-height: 800px; /* Minimum height for the preview pane */
+            padding: 0.5in 0.6in; /* Top, Left, Bottom, Right margins in inches */
+            overflow-y: auto; /* Allow vertical scrolling */
+            display: flex; /* Use flexbox to contain content */
+            justify-content: center; /* Center content horizontally within the preview */
+        }
+
+        /* Styles for the actual resume content within the preview */
+        .resume-content {
+            width: 100%; /* Take full width of its parent (.preview) */
+            max-width: 8.5in; /* Constrain to letter paper width for visual consistency */
+            line-height: 1.6;
+            color: #333;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+            font-size: 14px;
+            /* No min-height or margin-bottom here, as it's a continuous scroll */
+        }
+
+        .resume-content h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 2.2rem;
+            page-break-after: avoid; /* Prevents page break immediately after heading */
+        }
+
+        .resume-content h2 {
+            color: #34495e;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+            page-break-after: avoid;
+            page-break-inside: avoid; /* Keeps heading with its content */
+        }
+
+        .resume-content h3 {
+            color: #2c3e50;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+            page-break-after: avoid;
+            page-break-inside: avoid;
+        }
+
+        .resume-content p {
+            margin-bottom: 15px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .resume-content ul, .resume-content ol {
+            margin-bottom: 15px;
+            padding-left: 30px;
+            page-break-inside: auto; /* Allows lists to break across pages if necessary */
+        }
+
+        .resume-content li {
+            margin-bottom: 5px;
+            page-break-inside: avoid; /* Tries to keep list items on the same page */
+        }
+
+        .resume-content strong {
+            color: #2c3e50;
+        }
+
+        .resume-content a {
+            color: #3498db;
+            text-decoration: none;
+        }
+
+        .resume-content a:hover {
+            text-decoration: underline;
+        }
+
+        .resume-content blockquote {
+            border-left: 4px solid #bdc3c7;
+            padding-left: 20px;
+            margin: 20px 0;
+            font-style: italic;
+            color: #7f8c8d;
+        }
+
+        .resume-content code {
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #e74c3c;
+        }
+
+        .resume-content pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+
+        .sample-resume {
+            color: #7f8c8d;
+            font-style: italic;
+            text-align: center;
+            padding: 40px;
+        }
+
+        /* Responsive adjustments for smaller screens */
+        @media (max-width: 768px) {
+            .content {
+                flex-direction: column;
+            }
+            
+            .editor {
+                border-right: none;
+                border-bottom: 1px solid #e9ecef;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .file-label, .export-btn, .export-docx-btn {
+                justify-content: center;
+            }
+
+            .preview {
+                padding: 15px; /* Adjust padding for smaller screens */
+            }
+
+            .resume-content {
+                width: 100%; /* Allow content to fill available width on small screens */
+                padding: 0.3in 0.4in; /* Adjust margins for smaller screens */
+            }
+        }
+
+        /* Print specific styles for PDF consistency */
+        @media print {
+            body { 
+                background: white; 
+                margin: 0; /* Remove body margin for print */
+                padding: 0; /* Remove body padding for print */
+            }
+            .container { 
+                box-shadow: none; 
+                border-radius: 0; 
+                max-width: none; /* Allow container to take full width */
+            }
+            .header, .controls, .editor { 
+                display: none; /* Hide UI elements not needed in print */
+            }
+            .content { 
+                min-height: auto; 
+                display: block; /* Change to block for print layout */
+            }
+            .preview { 
+                padding: 0; /* Remove padding from preview as @page will handle margins */
+                width: 8.5in; /* Ensure preview takes full letter width */
+                min-height: auto; /* No minimum height for print */
+                overflow: visible; /* Ensure content is not clipped */
+            }
+            .resume-content {
+                width: 8.5in; /* Explicitly set width for print */
+                margin: 0; /* Margins handled by @page */
+                padding: 0; /* Padding handled by @page */
+                border: none; /* Remove border in print */
+                box-shadow: none; /* Remove shadow in print */
+            }
+
+            /* Define page size and margins for print */
+            @page {
+                size: letter; /* Set page size to Letter */
+                margin: 0.5in 0.6in 0.5in 0.6in; /* Top, Right, Bottom, Left margins */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 Resume Editor</h1>
+            <p>Load your markdown resume and export to PDF or DOCX</p>
+        </div>
+        
+        <div class="controls">
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" class="file-input" accept=".md,.txt" />
+                <label for="fileInput" class="file-label">
+                    📁 Choose Markdown File
+                </label>
+            </div>
+            <button id="exportBtn" class="export-btn" disabled>
+                📥 Export as PDF
+            </button>
+            <button id="exportDocxBtn" class="export-docx-btn" disabled>
+                📄 Export as DOCX
+            </button>
+        </div>
+        
+        <div class="content">
+            <div class="editor">
+                <textarea 
+                    id="markdownInput" 
+                    class="textarea" 
+                    placeholder="Paste your markdown resume here or load a .md file...
+
+Example:
+# John Doe
+**Software Engineer** | john@example.com | (555) 123-4567
+
+## Experience
+### Senior Developer - Tech Corp (2020-Present)
+- Led development of web applications
+- Improved system performance by 40%
+
+## Skills
+- JavaScript, Python, React
+- Node.js, PostgreSQL
+- AWS, Docker, Kubernetes
+
+## Education
+**B.S. Computer Science** - University Name (2018)"
+                ></textarea>
+            </div>
+            
+            <div class="preview">
+                <div id="resumePreview" class="resume-content">
+                    <div class="sample-resume">
+                        Load a markdown file or start typing to see your resume preview here
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const markdownInput = document.getElementById('markdownInput');
+        const resumePreview = document.getElementById('resumePreview'); // Changed to target the resume-content div directly
+        const exportBtn = document.getElementById('exportBtn');
+        const exportDocxBtn = document.getElementById('exportDocxBtn');
+        let debounceTimer;
+
+        // Configure marked options for markdown parsing
+        marked.setOptions({
+            breaks: true, // Render <br> tags for newline characters
+            gfm: true     // Enable GitHub Flavored Markdown
+        });
+
+        // Event listener for file input change
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    markdownInput.value = e.target.result; // Set textarea value to file content
+                    updatePreview(); // Update the preview immediately
+                };
+                reader.readAsText(file); // Read the file as text
+            }
+        });
+
+        // Event listener for markdown input changes with debounce
+        markdownInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer); // Clear previous timer
+            debounceTimer = setTimeout(updatePreview, 300); // Set new timer (300ms debounce)
+        });
+
+        // Function to update the resume preview
+        function updatePreview() {
+            const markdownText = markdownInput.value.trim();
+            
+            if (markdownText) {
+                try {
+                    const html = marked.parse(markdownText); // Parse markdown to HTML
+                    resumePreview.innerHTML = html; // Display HTML in preview area
+                    exportBtn.disabled = false; // Enable PDF export button
+                    exportDocxBtn.disabled = false; // Enable DOCX export button
+                } catch (error) {
+                    // Display error message if markdown parsing fails
+                    resumePreview.innerHTML = '<div class="sample-resume">Error parsing markdown. Please check your syntax.</div>';
+                    exportBtn.disabled = true; // Disable export buttons on error
+                    exportDocxBtn.disabled = true;
+                    console.error('Markdown parsing error:', error);
+                }
+            } else {
+                // Display sample text if input is empty
+                resumePreview.innerHTML = '<div class="sample-resume">Load a markdown file or start typing to see your resume preview here</div>';
+                exportBtn.disabled = true; // Disable export buttons
+                exportDocxBtn.disabled = true;
+            }
+        }
+
+        // Export to PDF function
+        exportBtn.addEventListener('click', function() {
+            // Create a temporary element to hold the content for PDF generation
+            // This ensures only the actual resume content is exported, without page break visuals
+            const tempPdfElement = document.createElement('div');
+            tempPdfElement.style.width = '8.5in'; // Match letter width
+            tempPdfElement.style.padding = '0.5in 0.6in'; // Match desired margins
+            tempPdfElement.innerHTML = marked.parse(markdownInput.value.trim()); // Parse markdown directly
+
+            document.body.appendChild(tempPdfElement); // Temporarily add to DOM for html2pdf to render
+
+            // PDF generation options
+            const opt = {
+                margin: [0.5, 0.6, 0.5, 0.6], // Top, Left, Bottom, Right margins in inches
+                filename: 'resume.pdf',
+                image: { type: 'jpeg', quality: 0.98 }, // Image quality for canvas rendering
+                html2canvas: { 
+                    scale: 2, // Scale factor for rendering HTML to canvas (higher for better quality)
+                    useCORS: true, // Enable cross-origin images (if any)
+                    letterRendering: true // Optimize text rendering
+                },
+                jsPDF: { 
+                    unit: 'in', // Unit for jsPDF (inches)
+                    format: 'letter', // Page format (Letter: 8.5in x 11in)
+                    orientation: 'portrait' // Page orientation
+                }
+            };
+
+            exportBtn.textContent = '⏳ Generating PDF...'; // Update button text
+            exportBtn.disabled = true; // Disable button during generation
+            exportDocxBtn.disabled = true; // Disable other export button too
+
+            // Generate and save PDF
+            html2pdf().set(opt).from(tempPdfElement).save().then(() => {
+                document.body.removeChild(tempPdfElement); // Clean up temporary element
+                exportBtn.innerHTML = '📥 Export as PDF'; // Restore button text
+                // Re-enable buttons if markdown content exists
+                if (markdownInput.value.trim()) { 
+                    exportBtn.disabled = false;
+                    exportDocxBtn.disabled = false;
+                }
+            }).catch((error) => {
+                document.body.removeChild(tempPdfElement); // Clean up temporary element even on error
+                console.error('PDF generation failed:', error);
+                console.warn('Failed to generate PDF. Please try again.'); // User-friendly warning
+                exportBtn.innerHTML = '📥 Export as PDF'; // Restore button text
+                // Re-enable buttons if markdown content exists
+                 if (markdownInput.value.trim()) {
+                    exportBtn.disabled = false;
+                    exportDocxBtn.disabled = false;
+                }
+            });
+        });
+
+        // Function to get CSS styles specifically for DOCX export
+        function getDocxStyles() {
+            // These styles are embedded directly into the HTML passed to html-docx-js
+            // They help ensure consistent formatting within the DOCX document.
+            return `
+                /* Define page size and margins for DOCX, using pt for @page rule */
+                @page {
+                    size: 8.5in 11in; /* Letter size */
+                    /* Margins: 0.5in top/bottom (36pt), 0.6in left/right (43.2pt) */
+                    margin: 36pt 43.2pt 36pt 43.2pt; 
+                }
+                
+                body { 
+                    font-family: Calibri, Arial, sans-serif; /* Common fonts for DOCX */
+                    font-size: 11pt;
+                    line-height: 1.15; /* Standard line spacing */
+                    color: #333; 
+                    margin: 0; /* Handled by @page rule */
+                    padding: 0; /* Handled by @page rule */
+                    width: 7.3in; /* Content width: 8.5in - (0.6in * 2) */
+                }
+                
+                /* Ensure block-level elements respect the flow and margins */
+                h1 { 
+                    color: #2c3e50; 
+                    border-bottom: 3px solid #3498db; 
+                    padding-bottom: 10px; 
+                    margin: 0 0 20px 0; 
+                    font-size: 24pt; 
+                    line-height: 1.15;
+                }
+                h2 { 
+                    color: #34495e; 
+                    margin: 20px 0 10px 0; 
+                    padding: 0;
+                    font-size: 16pt; 
+                    border-left: 4px solid #3498db; 
+                    padding-left: 15px; 
+                    line-height: 1.15;
+                }
+                h3 { 
+                    color: #2c3e50; 
+                    margin: 15px 0 8px 0; 
+                    font-size: 14pt; 
+                    line-height: 1.15;
+                }
+                p { 
+                    margin: 0 0 12pt 0; 
+                    line-height: 1.15;
+                }
+                ul, ol { 
+                    margin: 0 0 12pt 0; 
+                    padding-left: 30px; 
+                    line-height: 1.15;
+                }
+                li { 
+                    margin-bottom: 5px; 
+                    line-height: 1.15;
+                }
+                strong { color: #2c3e50; }
+                a { color: #3498db; text-decoration: none; }
+                blockquote { 
+                    border-left: 4px solid #bdc3c7; 
+                    padding-left: 20px; 
+                    margin: 20px 0; 
+                    font-style: italic; 
+                    color: #7f8c8d; 
+                    line-height: 1.15;
+                }
+                code { 
+                    background: #f8f9fa; 
+                    padding: 2px 6px; 
+                    font-family: monospace; 
+                    color: #e74c3c; 
+                    font-size: 10pt; 
+                }
+                pre { 
+                    background: #f8f9fa; 
+                    padding: 15px; 
+                    overflow-x: auto; /* May not fully translate to DOCX */
+                    margin: 15px 0; 
+                    line-height: 1.15;
+                    font-family: monospace;
+                    font-size: 10pt; 
+                }
+            `;
+        }
+
+        // Export to DOCX function
+        exportDocxBtn.addEventListener('click', function() {
+            exportDocxBtn.textContent = '⏳ Generating DOCX...'; // Update button text
+            exportDocxBtn.disabled = true; // Disable button during generation
+            exportBtn.disabled = true; // Disable other export button too
+
+            try {
+                // Get HTML content by parsing markdown directly, excluding visual page breaks
+                const htmlContent = marked.parse(markdownInput.value.trim()); 
+                const styles = getDocxStyles(); // Get DOCX specific CSS styles
+                
+                // Construct complete HTML for DOCX conversion
+                const completeHtml = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <style>
+                            ${styles}
+                        </style>
+                    </head>
+                    <body>
+                        <div class="document-container">
+                            ${htmlContent}
+                        </div>
+                    </body>
+                    </html>
+                `;
+
+                // DOCX conversion options
+                const options = {
+                    orientation: 'portrait',
+                    margins: {
+                        // Margins in twips (1 inch = 1440 twips)
+                        // 0.5 inches top/bottom = 720 twips
+                        // 0.6 inches left/right = 864 twips
+                        top: 720,    
+                        right: 864,  
+                        bottom: 720, 
+                        left: 864,   
+                        header: 0,
+                        footer: 0,
+                        gutter: 0
+                    }
+                };
+
+                // Convert HTML to DOCX blob and save
+                const converted = htmlDocx.asBlob(completeHtml, options);
+                saveAs(converted, 'resume.docx');
+
+                exportDocxBtn.innerHTML = '📄 Export as DOCX'; // Restore button text
+                // Re-enable buttons if markdown content exists
+                if (markdownInput.value.trim()) { 
+                   exportDocxBtn.disabled = false;
+                   exportBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('DOCX generation failed:', error);
+                console.warn('Failed to generate DOCX. Please try again.'); // User-friendly warning
+                exportDocxBtn.innerHTML = '📄 Export as DOCX'; // Restore button text
+                // Re-enable buttons if markdown content exists
+                if (markdownInput.value.trim()) {
+                   exportDocxBtn.disabled = false;
+                   exportBtn.disabled = false;
+                }
+            }
+        });
+
+        // Initialize the preview on page load
+        updatePreview();
+    </script>
+</body>
+</html>
