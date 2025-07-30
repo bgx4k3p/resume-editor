@@ -41,7 +41,7 @@ Visit the live application: [https://bgx4k3p.github.io/resume-editor](https://bg
 
 ## 💡 Perfect For
 
-Job seekers who need to quickly customize resumes for different applications without the hassle of traditional word processors.
+Job seekers who need to quickly customize resumes for different applications without the hassle of traditional word processors. It also allows for integration with other automation.
 
 ## 📄 License
 
