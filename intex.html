@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resume Editor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://unpkg.com/html-docx-js@0.3.1/dist/html-docx.js"></script>
     <style>
@@ -83,33 +82,6 @@
             background: #0056b3;
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,123,255,0.3);
-        }
-
-        .export-btn {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .export-btn:hover {
-            background: #1e7e34;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(40,167,69,0.3);
-        }
-
-        .export-btn:disabled {
-            background: #6c757d;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
         }
 
         .export-docx-btn {
@@ -292,7 +264,7 @@
                 align-items: stretch;
             }
             
-            .file-label, .export-btn, .export-docx-btn {
+            .file-label, .export-docx-btn {
                 justify-content: center;
             }
 
@@ -351,7 +323,7 @@
     <div class="container">
         <div class="header">
             <h1>📄 Resume Editor</h1>
-            <p>Load your markdown resume and export to PDF or DOCX</p>
+            <p>Load your markdown resume and export to DOCX</p>
         </div>
         
         <div class="controls">
@@ -361,9 +333,6 @@
                     📁 Choose Markdown File
                 </label>
             </div>
-            <button id="exportBtn" class="export-btn" disabled>
-                📥 Export as PDF
-            </button>
             <button id="exportDocxBtn" class="export-docx-btn" disabled>
                 📄 Export as DOCX
             </button>
@@ -409,7 +378,6 @@ Example:
         const fileInput = document.getElementById('fileInput');
         const markdownInput = document.getElementById('markdownInput');
         const resumePreview = document.getElementById('resumePreview'); // Changed to target the resume-content div directly
-        const exportBtn = document.getElementById('exportBtn');
         const exportDocxBtn = document.getElementById('exportDocxBtn');
         let debounceTimer;
 
@@ -446,76 +414,19 @@ Example:
                 try {
                     const html = marked.parse(markdownText); // Parse markdown to HTML
                     resumePreview.innerHTML = html; // Display HTML in preview area
-                    exportBtn.disabled = false; // Enable PDF export button
                     exportDocxBtn.disabled = false; // Enable DOCX export button
                 } catch (error) {
                     // Display error message if markdown parsing fails
                     resumePreview.innerHTML = '<div class="sample-resume">Error parsing markdown. Please check your syntax.</div>';
-                    exportBtn.disabled = true; // Disable export buttons on error
                     exportDocxBtn.disabled = true;
                     console.error('Markdown parsing error:', error);
                 }
             } else {
                 // Display sample text if input is empty
                 resumePreview.innerHTML = '<div class="sample-resume">Load a markdown file or start typing to see your resume preview here</div>';
-                exportBtn.disabled = true; // Disable export buttons
-                exportDocxBtn.disabled = true;
+                exportDocxBtn.disabled = true; // Disable export button
             }
         }
-
-        // Export to PDF function
-        exportBtn.addEventListener('click', function() {
-            // Create a temporary element to hold the content for PDF generation
-            // This ensures only the actual resume content is exported, without page break visuals
-            const tempPdfElement = document.createElement('div');
-            tempPdfElement.style.width = '8.5in'; // Match letter width
-            tempPdfElement.style.padding = '0.5in 0.6in'; // Match desired margins
-            tempPdfElement.innerHTML = marked.parse(markdownInput.value.trim()); // Parse markdown directly
-
-            document.body.appendChild(tempPdfElement); // Temporarily add to DOM for html2pdf to render
-
-            // PDF generation options
-            const opt = {
-                margin: [0.5, 0.6, 0.5, 0.6], // Top, Left, Bottom, Right margins in inches
-                filename: 'resume.pdf',
-                image: { type: 'jpeg', quality: 0.98 }, // Image quality for canvas rendering
-                html2canvas: { 
-                    scale: 2, // Scale factor for rendering HTML to canvas (higher for better quality)
-                    useCORS: true, // Enable cross-origin images (if any)
-                    letterRendering: true // Optimize text rendering
-                },
-                jsPDF: { 
-                    unit: 'in', // Unit for jsPDF (inches)
-                    format: 'letter', // Page format (Letter: 8.5in x 11in)
-                    orientation: 'portrait' // Page orientation
-                }
-            };
-
-            exportBtn.textContent = '⏳ Generating PDF...'; // Update button text
-            exportBtn.disabled = true; // Disable button during generation
-            exportDocxBtn.disabled = true; // Disable other export button too
-
-            // Generate and save PDF
-            html2pdf().set(opt).from(tempPdfElement).save().then(() => {
-                document.body.removeChild(tempPdfElement); // Clean up temporary element
-                exportBtn.innerHTML = '📥 Export as PDF'; // Restore button text
-                // Re-enable buttons if markdown content exists
-                if (markdownInput.value.trim()) { 
-                    exportBtn.disabled = false;
-                    exportDocxBtn.disabled = false;
-                }
-            }).catch((error) => {
-                document.body.removeChild(tempPdfElement); // Clean up temporary element even on error
-                console.error('PDF generation failed:', error);
-                console.warn('Failed to generate PDF. Please try again.'); // User-friendly warning
-                exportBtn.innerHTML = '📥 Export as PDF'; // Restore button text
-                // Re-enable buttons if markdown content exists
-                 if (markdownInput.value.trim()) {
-                    exportBtn.disabled = false;
-                    exportDocxBtn.disabled = false;
-                }
-            });
-        });
 
         // Function to get CSS styles specifically for DOCX export
         function getDocxStyles() {
@@ -609,7 +520,6 @@ Example:
         exportDocxBtn.addEventListener('click', function() {
             exportDocxBtn.textContent = '⏳ Generating DOCX...'; // Update button text
             exportDocxBtn.disabled = true; // Disable button during generation
-            exportBtn.disabled = true; // Disable other export button too
 
             try {
                 // Get HTML content by parsing markdown directly, excluding visual page breaks
@@ -656,19 +566,17 @@ Example:
                 saveAs(converted, 'resume.docx');
 
                 exportDocxBtn.innerHTML = '📄 Export as DOCX'; // Restore button text
-                // Re-enable buttons if markdown content exists
+                // Re-enable button if markdown content exists
                 if (markdownInput.value.trim()) { 
                    exportDocxBtn.disabled = false;
-                   exportBtn.disabled = false;
                 }
             } catch (error) {
                 console.error('DOCX generation failed:', error);
                 console.warn('Failed to generate DOCX. Please try again.'); // User-friendly warning
                 exportDocxBtn.innerHTML = '📄 Export as DOCX'; // Restore button text
-                // Re-enable buttons if markdown content exists
+                // Re-enable button if markdown content exists
                 if (markdownInput.value.trim()) {
                    exportDocxBtn.disabled = false;
-                   exportBtn.disabled = false;
                 }
             }
         });
