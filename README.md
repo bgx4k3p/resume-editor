@@ -6,6 +6,8 @@ A simple browser-based tool to edit markdown resumes and export to DOCX. Perfect
 
 Visit the live application: [https://bgx4k3p.github.io/resume-editor](https://bgx4k3p.github.io/resume-editor)
 
+![ui.png](ui.png)
+
 ## 🎯 Why Use This?
 
 - **Quick customization**: Edit your resume in markdown for fast changes
